@@ -34,7 +34,7 @@ Movie FRIDAY looks like one magic thing. Real ones are a few simple parts stacke
 |---|---|---|
 | **1 ✅** | Terminal chat with a personality and conversation memory | API calls, system prompts, message history, streaming |
 | **2 ✅** | Long-term memory: "remember that my sister's birthday is May 3rd" | Saving to and loading from files, giving context to the model |
-| 3 | First tools: time/date, weather, web search | Tool use, the agent loop |
+| **3 ✅** | First tools: time/date, weather, web search | Tool use, the agent loop |
 | 4 | Hands on your computer: read and write files, open apps, run commands (with your approval) | Safety and confirmation gates |
 | 5 | Voice: wake word ("Hey FRIDAY"), speech in, spoken replies | Audio pipelines, latency |
 | 6 | Integrations: calendar, email, smart home (Home Assistant), phone notifications | APIs, OAuth, MCP servers |
@@ -54,6 +54,7 @@ pip install -r requirements.txt
 
 export ANTHROPIC_API_KEY=sk-ant-...      # Windows PowerShell: $env:ANTHROPIC_API_KEY="sk-ant-..."
 export FRIDAY_USER_NAME="Hunter"         # optional: what FRIDAY calls you
+export FRIDAY_HOME_CITY="Tampa"          # optional: default city for weather
 python friday.py
 ```
 
@@ -113,5 +114,54 @@ recaps into her system prompt.
    we talking about last time?" Then read `memory/journal.jsonl` to see her notes.
 4. Change `RECAPS_TO_LOAD` in `memory.py` to 1 and see what she forgets.
 
-When you're ready, ask for **Step 3: tools** (time, weather, web search, and
-letting her save memories on her own).
+## Step 3: tools
+
+FRIDAY can now *do* things. Just ask naturally:
+
+- "What time is it?" or "What day is Thanksgiving this year?"
+- "Do I need an umbrella today?" (set `FRIDAY_HOME_CITY` so she knows where you are)
+- "What's the latest news on the Bucs?" (she searches the web)
+- "My mom's name is Linda and she hates cilantro." (she decides that's worth saving)
+
+You'll see `[checking the weather...]` lines while she works.
+
+### How tools work
+Open `tools.py`. Every tool has two halves:
+
+1. **A description** the model reads: a name, what it does, and its inputs.
+   The description is how she decides *when* to use it, so it's written like
+   instructions to a coworker.
+2. **A Python function** that does the work. The model never runs code itself.
+   It asks, your program runs the function, and the result goes back.
+
+### The agent loop
+Open `run_turn` in `friday.py`. This loop is the heart of every AI agent, Jarvis included:
+
+```
+you: "do I need an umbrella?"
+  → model: "call get_weather(city='Tampa')"     stop_reason = tool_use
+  → your code runs get_weather, sends back "40% chance of rain..."
+  → model: "Take one, babe. 40% and it's Florida."   stop_reason = end_turn
+```
+
+She can chain several tools in one answer, or call several at once. Each round
+trip gets appended to the conversation so she sees everything she did.
+
+**Web search is different.** It's a *server tool*: Anthropic runs it on their
+side, inside the same request, so there's no Python function for it. It costs a
+little extra per search, so it's capped at 5 searches per message.
+
+### Experiments
+1. **Add your own tool.** Try a `flip_coin` or `roll_dice` tool: write the
+   function, add a description to `TOOLS`, and register it in `TOOL_FUNCTIONS`.
+   Then ask "flip a coin for who does dishes."
+2. **Write a bad description.** Change `get_weather`'s description to
+   "Gets data." and ask about rain. Watch her stop using it reliably. Then
+   change it back.
+3. **Break a tool.** Ask about the weather in a made-up city. The error goes
+   back to her, and she handles it like a person would.
+4. **Watch her save memories.** Mention something personal in passing, then
+   type `memories`.
+
+When you're ready, ask for **Step 4: hands on your computer** (files, apps and
+commands, with your approval before anything risky).
