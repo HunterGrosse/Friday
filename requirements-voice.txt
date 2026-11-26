@@ -1,0 +1,6 @@
+-r requirements.txt
+sounddevice>=0.5
+numpy>=1.26
+faster-whisper>=1.1
+webrtcvad-wheels>=2.0.14
+pvporcupine>=3.0

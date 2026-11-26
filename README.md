@@ -35,8 +35,8 @@ Movie FRIDAY looks like one magic thing. Real ones are a few simple parts stacke
 | **1 ✅** | Terminal chat with a personality and conversation memory | API calls, system prompts, message history, streaming |
 | **2 ✅** | Long-term memory: "remember that my sister's birthday is May 3rd" | Saving to and loading from files, giving context to the model |
 | **3 ✅** | First tools: time/date, weather, web search | Tool use, the agent loop |
-| 4 | Hands on your computer: read and write files, open apps, run commands (with your approval) | Safety and confirmation gates |
-| 5 | Voice: wake word ("Hey FRIDAY"), speech in, spoken replies | Audio pipelines, latency |
+| **4 ✅** | Voice: "Hey FRIDAY", speech in, her own designed voice out | Audio pipelines, streaming, latency |
+| 5 | Hands on your computer: read and write files, open apps, run commands (with your approval) | Safety and confirmation gates |
 | 6 | Integrations: calendar, email, smart home (Home Assistant), phone notifications | APIs, OAuth, MCP servers |
 | 7 | Always on: runs in the background, proactive briefings, scheduled tasks | Services, scheduling |
 | 8 | Interface: a heads-up dashboard (web or desktop) | UI |
@@ -163,5 +163,80 @@ little extra per search, so it's capped at 5 searches per message.
 4. **Watch her save memories.** Mention something personal in passing, then
    type `memories`.
 
-When you're ready, ask for **Step 4: hands on your computer** (files, apps and
+When you're ready, ask for **Step 4: voice**.
+
+## Step 4: voice
+
+```
+mic → "Hey FRIDAY" → record until you stop → Whisper (speech → text)
+    → same brain, tools and memory as text mode
+    → her reply streams sentence by sentence → ElevenLabs (text → her voice) → speaker
+```
+
+### Setup (about 15 minutes)
+
+**1. Install the voice packages**
+```bash
+pip install -r requirements-voice.txt
+```
+On Linux you also need PortAudio: `sudo apt install libportaudio2`. On Mac and
+Windows it comes bundled.
+
+**2. Design her voice (ElevenLabs)**
+1. Sign up at <https://elevenlabs.io>. The Starter plan is plenty to begin with.
+2. Go to **Voices → Add a new voice → Voice Design**, and describe her. For example:
+   > A woman in her mid-30s from South Florida with a light Southern-Florida
+   > accent. Confident, sassy and quick, with a warm, slightly raspy tone,
+   > like she's leaning over a nail station telling you the truth.
+3. Generate a few, pick your favorite, save it, and copy its **Voice ID**.
+4. Create an API key under **Developers → API Keys**.
+
+**3. Get "Hey FRIDAY" (Picovoice). Optional, but this is the Jarvis part.**
+1. Sign up free at <https://console.picovoice.ai> and copy your **AccessKey**.
+2. Under **Porcupine**, type `Hey Friday`, train it, and download the `.ppn`
+   file for your computer (Mac, Windows or Linux).
+3. Skip this step and she'll run in push-to-talk mode instead: press Enter, then talk.
+
+**4. Set your keys and run**
+```bash
+export ELEVENLABS_API_KEY=...
+export ELEVENLABS_VOICE_ID=...
+export PICOVOICE_ACCESS_KEY=...                       # optional
+export PORCUPINE_KEYWORD_PATH=/path/to/Hey-Friday.ppn # optional
+python friday.py --voice
+```
+The first launch downloads the Whisper speech model (a few hundred MB).
+
+### Using it
+- Say **"Hey FRIDAY"**, wait a beat, then talk. She records until you pause.
+- After she answers she keeps listening for about 5 seconds, so you can follow
+  up without the wake word. Go quiet and she goes back to sleep.
+- **Ctrl+C** quits. She still writes her recap and says goodbye.
+- Text mode (`python friday.py`) still works exactly as before, and both
+  modes share the same memory.
+
+### How it stays fast
+- **Streaming all the way through.** Her reply arrives word by word. As soon as
+  a full sentence exists it's sent off to ElevenLabs, and audio starts playing
+  while she's still writing the next sentence. Look at the `Mouth` class in
+  `voice.py`: two background threads form a pipeline (generate audio, then
+  play it).
+- **She's told she's speaking.** In voice mode her instructions add
+  `VOICE_RULES`: short answers, no lists or symbols, numbers as words, and
+  allowance for speech-to-text mistakes.
+- **Whisper runs on your machine**, so your audio isn't uploaded for
+  transcription. Her replies are still sent to ElevenLabs to be spoken.
+
+### Tuning
+| Setting | Default | Try |
+|---|---|---|
+| `FRIDAY_WHISPER_MODEL` | `small.en` | `base.en` if transcription is slow; `large-v3-turbo` with an NVIDIA GPU |
+| `ELEVENLABS_MODEL` | `eleven_flash_v2_5` (fastest) | `eleven_multilingual_v2` for a richer but slower voice |
+| `SILENCE_TO_STOP` in `voice.py` | 0.9 s | Raise it if she cuts you off mid-thought |
+| `VAD_AGGRESSIVENESS` in `voice.py` | 2 | 3 in a noisy room |
+
+**Use headphones at first.** She doesn't hear herself while she talks, but
+speakers right next to the mic can confuse the follow-up listening.
+
+When you're ready, ask for **Step 5: hands on your computer** (files, apps and
 commands, with your approval before anything risky).
