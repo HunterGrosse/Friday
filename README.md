@@ -36,10 +36,11 @@ Jarvis and FRIDAY in the movies look like one magic thing. Real ones are a few s
 | **2 ✅** | Long-term memory: "remember that my sister's birthday is May 3rd" | Saving to and loading from files, giving context to the model |
 | **3 ✅** | First tools: time/date, weather, web search | Tool use, the agent loop |
 | **4 ✅** | Voice: "Hey Zoey", speech in, her own designed voice out | Audio pipelines, streaming, latency |
-| 5 | Hands on your computer: read and write files, open apps, run commands (with your approval) | Safety and confirmation gates |
-| 6 | Integrations: calendar, email, smart home (Home Assistant), phone notifications | APIs, OAuth, MCP servers |
-| 7 | Always on: runs in the background, proactive briefings, scheduled tasks | Services, scheduling |
-| 8 | Interface: a heads-up dashboard (web or desktop) | UI |
+| **5 ✅** | Always on (Mac): starts at login, restarts itself, keeps the Mac awake, files conversations away | Background services, config files, reliability |
+| 6 | Phone: talk to her from anywhere, same memory | Client/server design, secure remote access |
+| 7 | Hands on your computer: read and write files, open apps, run commands (with your approval) | Safety and confirmation gates |
+| 8 | Integrations: calendar, email, smart home (Home Assistant), proactive briefings | APIs, OAuth, MCP servers |
+| 9 | Interface: a heads-up dashboard (web or desktop) | UI |
 
 ## Step 1: talk to it
 
@@ -238,5 +239,61 @@ The first launch downloads the Whisper speech model (a few hundred MB).
 **Use headphones at first.** She doesn't hear herself while she talks, but
 speakers right next to the mic can confuse the follow-up listening.
 
-When you're ready, ask for **Step 5: hands on your computer** (files, apps and
-commands, with your approval before anything risky).
+
+
+When you're ready, ask for **Step 5: always on**.
+
+## Step 5: always on (Mac)
+
+Zoey runs as a background service. She starts when you log in, comes back by
+herself if she crashes, and you never have to open a terminal to talk to her.
+
+### One-time setup
+```bash
+cd zoey                              # wherever you cloned this
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-voice.txt
+cp .env.example .env                 # then open .env and fill in your keys
+.venv/bin/python zoey.py --voice     # test once in Terminal, say "Hey Zoey"
+./zoeyctl install                    # make her permanent
+```
+
+Testing in Terminal first matters: it makes macOS ask for microphone access,
+and it proves your keys work before she disappears into the background.
+
+### Living with her
+| Command | What it does |
+|---|---|
+| `./zoeyctl status` | Is she running? |
+| `./zoeyctl logs` | Watch what she hears and says live (Ctrl+C stops watching, not her) |
+| `./zoeyctl restart` | Restart her, e.g. after you edit her personality or `.env` |
+| `./zoeyctl stop` | She says goodbye and stays off until you `start` her or log in again |
+| `./zoeyctl uninstall` | Remove the service. Her memory stays. |
+
+Logs live in `~/Library/Logs/Zoey/zoey.log`.
+
+### What keeps her healthy
+- **Settings in `.env`.** Your keys live in one git-ignored file instead of
+  being typed each time.
+- **Crash recovery.** If she crashes (say the mic disconnects), macOS restarts
+  her 10 seconds later. If she exits on purpose because a setting is missing,
+  she stays off and says why in the logs, instead of restarting forever.
+- **Fresh conversations.** After 15 quiet minutes
+  (`ZOEY_SESSION_IDLE_MINUTES`), she writes her recap and the next "Hey Zoey"
+  starts a new conversation with today's date and her latest memories. Without
+  this, a week of uptime would mean one giant conversation and a stale date.
+- **Clean shutdowns.** When you log out, restart, or run `zoeyctl stop`, macOS
+  asks her to quit and she still writes her recap.
+- **Staying awake.** She stops the Mac from idle-sleeping while she runs
+  (`ZOEY_KEEP_AWAKE=0` turns that off). A MacBook still sleeps when you close
+  the lid, so for true always-on keep it open or plugged into a display.
+- **Mic check.** If macOS blocks the mic, the background gets silence instead
+  of an error, so she checks at startup and warns you in the logs.
+
+### If she can't hear you in the background
+macOS grants mic access per app. If `./zoeyctl logs` shows the "pure silence"
+warning, open **System Settings → Privacy & Security → Microphone** and turn on
+**Python**. If Python isn't listed, run `./zoeyctl restart`, watch for a
+permission pop-up, and allow it.
+
+When you're ready, ask for **Step 6: your phone**.
