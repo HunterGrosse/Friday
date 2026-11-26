@@ -1,0 +1,79 @@
+#!/bin/bash
+# zoeyctl - run Zoey as an always-on background service on macOS.
+#
+#   ./zoeyctl install     start at login, restart if she crashes
+#   ./zoeyctl uninstall   remove the background service
+#   ./zoeyctl start | stop | restart
+#   ./zoeyctl status      is she running?
+#   ./zoeyctl logs        watch what she's hearing and saying (Ctrl+C to stop)
+#
+# Under the hood this is a launchd "LaunchAgent": macOS's built-in way of
+# keeping a program running for your user account.
+set -euo pipefail
+
+LABEL="com.zoey.assistant"
+DIR="$(cd "$(dirname "$0")" && pwd)"
+PYTHON="$DIR/.venv/bin/python"
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+LOG_DIR="$HOME/Library/Logs/Zoey"
+LOG="$LOG_DIR/zoey.log"
+DOMAIN="gui/$(id -u)"
+
+die() { echo "zoeyctl: $*" >&2; exit 1; }
+loaded() { launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1; }
+
+case "${1:-}" in
+  install)
+    [[ "$(uname)" == "Darwin" ]] || die "this script is for macOS."
+    [[ -x "$PYTHON" ]] || die "no virtualenv found. Run: python3 -m venv .venv && .venv/bin/pip install -r requirements-voice.txt"
+    [[ -f "$DIR/.env" ]] || die "no .env file. Run: cp .env.example .env, then fill in your keys."
+    mkdir -p "$LOG_DIR" "$(dirname "$PLIST")"
+    cat > "$PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>              <string>$LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$PYTHON</string>
+    <string>-u</string>
+    <string>$DIR/zoey.py</string>
+    <string>--voice</string>
+  </array>
+  <key>WorkingDirectory</key>   <string>$DIR</string>
+  <key>RunAtLoad</key>          <true/>
+  <!-- Restart her if she crashes, but not if she exits cleanly
+       (a clean exit means you stopped her, or a setting needs fixing). -->
+  <key>KeepAlive</key>
+  <dict><key>SuccessfulExit</key><false/></dict>
+  <key>ThrottleInterval</key>   <integer>10</integer>
+  <key>ProcessType</key>        <string>Interactive</string>
+  <key>StandardOutPath</key>    <string>$LOG</string>
+  <key>StandardErrorPath</key>  <string>$LOG</string>
+</dict>
+</plist>
+PLIST
+    loaded && launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+    launchctl bootstrap "$DOMAIN" "$PLIST"
+    echo "Zoey is installed and starting. She'll start on her own every time you log in."
+    echo "Watch her with: ./zoeyctl logs"
+    ;;
+  uninstall)
+    loaded && launchctl bootout "$DOMAIN/$LABEL" || true
+    rm -f "$PLIST"
+    echo "Zoey's background service is removed. (Her memory folder is untouched.)"
+    ;;
+  start)   loaded || die "not installed. Run: ./zoeyctl install"
+           launchctl kickstart "$DOMAIN/$LABEL" && echo "Starting Zoey." ;;
+  stop)    loaded || die "not installed."
+           launchctl kill TERM "$DOMAIN/$LABEL" && echo "Zoey is saying goodbye (she'll start again at next login)." ;;
+  restart) loaded || die "not installed. Run: ./zoeyctl install"
+           launchctl kickstart -k "$DOMAIN/$LABEL" && echo "Restarting Zoey." ;;
+  status)
+    if ! loaded; then echo "Not installed."; exit 0; fi
+    launchctl print "$DOMAIN/$LABEL" | grep -E "^\s*(state|pid|last exit code) =" || true
+    ;;
+  logs)    touch "$LOG"; tail -n 40 -f "$LOG" ;;
+  *)       sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac

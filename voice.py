@@ -63,13 +63,29 @@ class Ears:
         self.whisper = WhisperModel(WHISPER_MODEL, device="auto", compute_type="default")
 
         # The mic runs the whole time and drops 16-bit samples into a queue.
-        self._mic_queue: queue.Queue[np.ndarray] = queue.Queue()
+        # Capped at ~10 seconds so it can't grow forever if nobody reads it.
+        self._mic_queue: queue.Queue[np.ndarray] = queue.Queue(maxsize=340)
         self._buffer = np.zeros(0, dtype=np.int16)
         self._stream = sd.InputStream(
             samplerate=MIC_RATE, channels=1, dtype="int16", blocksize=480,
-            callback=lambda data, *_: self._mic_queue.put(data[:, 0].copy()),
+            callback=self._on_mic_audio,
         )
         self._stream.start()
+        self._check_mic()
+
+    def _on_mic_audio(self, data, *_):
+        try:
+            self._mic_queue.put_nowait(data[:, 0].copy())
+        except queue.Full:
+            pass  # nobody's listening right now; drop it
+
+    def _check_mic(self) -> None:
+        """macOS feeds pure silence (not an error) when mic access is denied."""
+        sample = next(self._frames(MIC_RATE))     # one second of audio
+        if not np.any(sample):
+            print("[!] The microphone is giving pure silence. On a Mac, allow "
+                  "access in System Settings > Privacy & Security > Microphone "
+                  "(for Terminal, or for python if she's running in the background).")
 
     # -- wake word ----------------------------------------------------------
     @staticmethod
@@ -85,17 +101,31 @@ class Ears:
     def hands_free(self) -> bool:
         return self.wake is not None
 
-    def wait_for_wake_word(self) -> None:
-        """Block until "Hey Zoey" (or Enter, in push-to-talk mode)."""
+    def wait_for_wake_word(self, timeout: float | None = None) -> bool:
+        """
+        Block until "Hey Zoey" (or Enter, in push-to-talk mode).
+        Returns False if `timeout` seconds pass first (wake-word mode only).
+        """
         if self.wake is None:
             input("[press Enter and talk] ")
-        else:
-            print('[sleeping... say "Hey Zoey"]')
             self.flush()
-            for frame in self._frames(self.wake.frame_length):
-                if self.wake.process(frame) >= 0:
-                    break
-        self.flush()
+            return True
+
+        if not getattr(self, "_announced_sleep", False):
+            print('[sleeping... say "Hey Zoey"]')
+            self._announced_sleep = True
+        frames_left = None
+        if timeout is not None:
+            frames_left = int(timeout * MIC_RATE / self.wake.frame_length)
+        for frame in self._frames(self.wake.frame_length):
+            if self.wake.process(frame) >= 0:
+                self._announced_sleep = False
+                self.flush()
+                return True
+            if frames_left is not None:
+                frames_left -= 1
+                if frames_left <= 0:
+                    return False
 
     # -- recording ----------------------------------------------------------
     def flush(self) -> None:

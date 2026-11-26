@@ -12,18 +12,44 @@ Step 2 added long-term memory (see memory.py):
 Step 3 added tools (see tools.py) and the agent loop (run_turn below): she can
 check the time, the weather, search the web, and save memories on her own.
 
-Step 4 adds her voice (see voice.py):   python zoey.py --voice
+Step 4 added her voice (see voice.py):   python zoey.py --voice
+
+Step 5 makes her always-on on a Mac (see zoeyctl): keys live in .env, she
+starts at login, restarts if she crashes, and starts a fresh conversation
+after she's been idle a while.
 
 Run it:
     pip install -r requirements.txt
-    export ANTHROPIC_API_KEY=sk-ant-...     # get one at console.anthropic.com
-    python zoey.py            # type to her
-    python zoey.py --voice    # talk to her
+    cp .env.example .env        # then fill in your keys
+    python zoey.py              # type to her
+    python zoey.py --voice      # talk to her
 """
 
 import os
 import re
+import signal
 import sys
+import time
+from pathlib import Path
+
+
+def load_env_file(path: Path = Path(__file__).parent / ".env") -> None:
+    """Read KEY=value lines from .env into the environment (real env wins)."""
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.removeprefix("export ").strip()
+        value = re.split(r"(?:^|\s)#", value, maxsplit=1)[0]   # drop "# comments"
+        value = value.strip().strip("'\"")
+        if value:  # leave blank settings unset
+            os.environ.setdefault(key, value)
+
+
+load_env_file()  # must run before anything below reads os.environ
 
 import anthropic
 
@@ -48,6 +74,11 @@ HOME_CITY = os.environ.get("ZOEY_HOME_CITY", "")
 
 # Safety net: the most tool round-trips allowed for a single message.
 MAX_TOOL_ROUNDS = 10
+
+# Voice mode: after this many quiet minutes she files the conversation away
+# (writes her recap) and the next "Hey Zoey" starts fresh, with today's date
+# and her latest memories.
+SESSION_IDLE_MINUTES = float(os.environ.get("ZOEY_SESSION_IDLE_MINUTES", "15"))
 
 # ---------------------------------------------------------------------------
 # 2. PERSONALITY (the system prompt)
@@ -144,6 +175,9 @@ def call_zoey(client, system_prompt, history, on_text=None, on_break=None):
         messages=history,
         # The same tool list goes on every request in a conversation.
         tools=tools.TOOLS,
+        # Prompt caching: the API remembers the start of the conversation
+        # between requests, so long chats stay fast and cheap.
+        cache_control={"type": "ephemeral"},
         output_config={"effort": EFFORT},
         betas=["server-side-fallback-2026-07-01"],
         fallbacks="default",
@@ -341,9 +375,34 @@ def voice_main() -> None:
     client = anthropic.Anthropic()
     system_prompt = build_system_prompt(voice_mode=True)
     history: list[dict] = []
+    last_activity = time.monotonic()
 
-    mouth = voice.Mouth()
-    ears = voice.Ears()
+    try:
+        mouth = voice.Mouth()
+        ears = voice.Ears()
+    except Exception as e:
+        # A setup problem (missing key, no mic). Exiting with status 0 tells
+        # the background service not to keep restarting until it's fixed.
+        print(f"[!] Can't start voice mode: {e}")
+        sys.exit(0)
+
+    if not ears.hands_free and not sys.stdin.isatty():
+        print("[!] Running in the background needs the wake word. Set "
+              "PICOVOICE_ACCESS_KEY and PORCUPINE_KEYWORD_PATH in .env.")
+        sys.exit(0)
+
+    # When the Mac logs out or the service is stopped, macOS sends SIGTERM.
+    # Treat it like Ctrl+C so she still writes her recap.
+    def on_terminate(*_):
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, on_terminate)
+
+    # Stop the Mac from idle-sleeping while she's running (macOS only).
+    # caffeinate -w quits by itself when Zoey does.
+    if sys.platform == "darwin" and os.environ.get("ZOEY_KEEP_AWAKE", "1") == "1":
+        import subprocess
+        subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())])
 
     def print_and_speak(text: str) -> None:
         print_text(text)
@@ -354,7 +413,15 @@ def voice_main() -> None:
 
     try:
         while True:
-            ears.wait_for_wake_word()
+            # Sleep until "Hey Zoey", checking once a minute whether it's time
+            # to wrap up the current conversation.
+            while not ears.wait_for_wake_word(timeout=60):
+                idle_minutes = (time.monotonic() - last_activity) / 60
+                if history and idle_minutes >= SESSION_IDLE_MINUTES:
+                    write_recap(client, system_prompt, history)
+                    history.clear()
+                    system_prompt = build_system_prompt(voice_mode=True)
+                    print("[conversation filed away; next one starts fresh]")
 
             # A conversation: after she answers, keep listening a few seconds
             # for a follow-up, so you don't need the wake word every time.
@@ -376,6 +443,7 @@ def voice_main() -> None:
                     mouth.stop()            # don't finish a broken sentence
                 ears.flush()                # don't "hear" her own voice
                 follow_up = True
+                last_activity = time.monotonic()
     except KeyboardInterrupt:
         mouth.stop()
         print()
