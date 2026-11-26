@@ -82,7 +82,7 @@ gets committed or pushed).
 
 | You type | What happens |
 |---|---|
-| `remember that my sister's birthday is May 3rd` | Saved to `memory/facts.json` (also works as `remember: ...`) |
+| `remember that my sister's birthday is May 3rd` | Saved to `memory/facts.json`. Since Step 3 she does this herself with her `save_memory` tool, so any wording works. |
 | `memories` | Lists everything she's saved, numbered |
 | `forget 2` | Deletes fact #2 |
 | `exit` / `reset` / Ctrl+C | She writes a 2-4 sentence recap of the conversation to `memory/journal.jsonl` |
