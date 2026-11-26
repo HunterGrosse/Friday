@@ -1,23 +1,23 @@
-# FRIDAY
+# Zoey
 
-A personal AI assistant, built one layer at a time.
+A personal AI assistant (think Jarvis or FRIDAY), built one layer at a time.
 
 ## How an assistant like this actually works
 
-Movie FRIDAY looks like one magic thing. Real ones are a few simple parts stacked together:
+Jarvis and FRIDAY in the movies look like one magic thing. Real ones are a few simple parts stacked together:
 
 ```
    ears (speech-to-text)                  mouth (text-to-speech)
             │                                       ▲
             ▼                                       │
- ┌──────────────────────────── FRIDAY ─────────────────────────────┐
- │  personality (system prompt) + memory (conversation history)    │
- │                     │                                            │
- │                     ▼                                            │
- │               BRAIN (Claude) ──── decides to use ───► TOOLS      │
+ ┌──────────────────────────── Zoey ─────────────────────────────────┐
+ │  personality (system prompt) + memory (conversation history)      │
+ │                     │                                             │
+ │                     ▼                                             │
+ │               BRAIN (Claude) ──── decides to use ───► TOOLS       │
  │                     ▲                     (weather, files, lights,│
  │                     └──── tool results ◄── calendar, web, code…)  │
- └──────────────────────────────────────────────────────────────────┘
+ └───────────────────────────────────────────────────────────────────┘
 ```
 
 - **Brain**: a large language model (Claude) that you call over an API. It turns text into text.
@@ -35,7 +35,7 @@ Movie FRIDAY looks like one magic thing. Real ones are a few simple parts stacke
 | **1 ✅** | Terminal chat with a personality and conversation memory | API calls, system prompts, message history, streaming |
 | **2 ✅** | Long-term memory: "remember that my sister's birthday is May 3rd" | Saving to and loading from files, giving context to the model |
 | **3 ✅** | First tools: time/date, weather, web search | Tool use, the agent loop |
-| **4 ✅** | Voice: "Hey FRIDAY", speech in, her own designed voice out | Audio pipelines, streaming, latency |
+| **4 ✅** | Voice: "Hey Zoey", speech in, her own designed voice out | Audio pipelines, streaming, latency |
 | 5 | Hands on your computer: read and write files, open apps, run commands (with your approval) | Safety and confirmation gates |
 | 6 | Integrations: calendar, email, smart home (Home Assistant), phone notifications | APIs, OAuth, MCP servers |
 | 7 | Always on: runs in the background, proactive briefings, scheduled tasks | Services, scheduling |
@@ -53,18 +53,18 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
 export ANTHROPIC_API_KEY=sk-ant-...      # Windows PowerShell: $env:ANTHROPIC_API_KEY="sk-ant-..."
-export FRIDAY_USER_NAME="Hunter"         # optional: what FRIDAY calls you
-export FRIDAY_HOME_CITY="Tampa"          # optional: default city for weather
-python friday.py
+export ZOEY_USER_NAME="Hunter"         # optional: what Zoey calls you
+export ZOEY_HOME_CITY="Tampa"          # optional: default city for weather
+python zoey.py
 ```
 
 Commands inside the chat: `reset` wipes memory, `exit` quits.
 
-### 3. Read `friday.py`
+### 3. Read `zoey.py`
 It's about 100 lines, and the comments are part of the lesson. Four sections:
 
 1. **Configuration**: which model, how much effort it spends thinking.
-2. **Personality**: the `SYSTEM_PROMPT`. Change it and you change who FRIDAY is.
+2. **Personality**: the `SYSTEM_PROMPT`. Change it and you change who Zoey is.
 3. **Memory**: the `history` list. Each turn the whole list goes back to the model.
 4. **The model call**: one streaming request per message, printing words as they arrive.
 
@@ -72,11 +72,11 @@ It's about 100 lines, and the comments are part of the lesson. Four sections:
 1. **Tune the personality.** She's a catty Florida nail tech now. Turn the sass up or down in `SYSTEM_PROMPT`, restart, and see how much a few sentences change her.
 2. **Break the memory.** Find `messages=history` and change it to `messages=[history[-1]]` (only the latest message). Tell it your name, then ask what your name is. Then change it back.
 3. **Watch it be honest.** Ask "what time is it?" It should say it can't check yet. That's the gap Step 3 fills with tools.
-4. **Try effort levels.** `FRIDAY_EFFORT=high python friday.py`, then ask a hard logic puzzle. Compare speed and quality with `low`.
+4. **Try effort levels.** `ZOEY_EFFORT=high python zoey.py`, then ask a hard logic puzzle. Compare speed and quality with `low`.
 
 ## Step 2: long-term memory
 
-FRIDAY now remembers things between runs. The code is in `memory.py`, and it's
+Zoey now remembers things between runs. The code is in `memory.py`, and it's
 all plain files in a `memory/` folder (git-ignored, so your personal info never
 gets committed or pushed).
 
@@ -116,10 +116,10 @@ recaps into her system prompt.
 
 ## Step 3: tools
 
-FRIDAY can now *do* things. Just ask naturally:
+Zoey can now *do* things. Just ask naturally:
 
 - "What time is it?" or "What day is Thanksgiving this year?"
-- "Do I need an umbrella today?" (set `FRIDAY_HOME_CITY` so she knows where you are)
+- "Do I need an umbrella today?" (set `ZOEY_HOME_CITY` so she knows where you are)
 - "What's the latest news on the Bucs?" (she searches the web)
 - "My mom's name is Linda and she hates cilantro." (she decides that's worth saving)
 
@@ -135,7 +135,7 @@ Open `tools.py`. Every tool has two halves:
    It asks, your program runs the function, and the result goes back.
 
 ### The agent loop
-Open `run_turn` in `friday.py`. This loop is the heart of every AI agent, Jarvis included:
+Open `run_turn` in `zoey.py`. This loop is the heart of every AI agent, Jarvis included:
 
 ```
 you: "do I need an umbrella?"
@@ -168,7 +168,7 @@ When you're ready, ask for **Step 4: voice**.
 ## Step 4: voice
 
 ```
-mic → "Hey FRIDAY" → record until you stop → Whisper (speech → text)
+mic → "Hey Zoey" → record until you stop → Whisper (speech → text)
     → same brain, tools and memory as text mode
     → her reply streams sentence by sentence → ElevenLabs (text → her voice) → speaker
 ```
@@ -191,9 +191,9 @@ Windows it comes bundled.
 3. Generate a few, pick your favorite, save it, and copy its **Voice ID**.
 4. Create an API key under **Developers → API Keys**.
 
-**3. Get "Hey FRIDAY" (Picovoice). Optional, but this is the Jarvis part.**
+**3. Get "Hey Zoey" (Picovoice). Optional, but this is the Jarvis part.**
 1. Sign up free at <https://console.picovoice.ai> and copy your **AccessKey**.
-2. Under **Porcupine**, type `Hey Friday`, train it, and download the `.ppn`
+2. Under **Porcupine**, type `Hey Zoey`, train it, and download the `.ppn`
    file for your computer (Mac, Windows or Linux).
 3. Skip this step and she'll run in push-to-talk mode instead: press Enter, then talk.
 
@@ -202,17 +202,17 @@ Windows it comes bundled.
 export ELEVENLABS_API_KEY=...
 export ELEVENLABS_VOICE_ID=...
 export PICOVOICE_ACCESS_KEY=...                       # optional
-export PORCUPINE_KEYWORD_PATH=/path/to/Hey-Friday.ppn # optional
-python friday.py --voice
+export PORCUPINE_KEYWORD_PATH=/path/to/Hey-Zoey.ppn # optional
+python zoey.py --voice
 ```
 The first launch downloads the Whisper speech model (a few hundred MB).
 
 ### Using it
-- Say **"Hey FRIDAY"**, wait a beat, then talk. She records until you pause.
+- Say **"Hey Zoey"**, wait a beat, then talk. She records until you pause.
 - After she answers she keeps listening for about 5 seconds, so you can follow
   up without the wake word. Go quiet and she goes back to sleep.
 - **Ctrl+C** quits. She still writes her recap and says goodbye.
-- Text mode (`python friday.py`) still works exactly as before, and both
+- Text mode (`python zoey.py`) still works exactly as before, and both
   modes share the same memory.
 
 ### How it stays fast
@@ -230,7 +230,7 @@ The first launch downloads the Whisper speech model (a few hundred MB).
 ### Tuning
 | Setting | Default | Try |
 |---|---|---|
-| `FRIDAY_WHISPER_MODEL` | `small.en` | `base.en` if transcription is slow; `large-v3-turbo` with an NVIDIA GPU |
+| `ZOEY_WHISPER_MODEL` | `small.en` | `base.en` if transcription is slow; `large-v3-turbo` with an NVIDIA GPU |
 | `ELEVENLABS_MODEL` | `eleven_flash_v2_5` (fastest) | `eleven_multilingual_v2` for a richer but slower voice |
 | `SILENCE_TO_STOP` in `voice.py` | 0.9 s | Raise it if she cuts you off mid-thought |
 | `VAD_AGGRESSIVENESS` in `voice.py` | 2 | 3 in a noisy room |

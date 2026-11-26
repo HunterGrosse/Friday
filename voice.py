@@ -1,13 +1,13 @@
 """
-FRIDAY's voice (Step 4): ears and a mouth.
+Zoey's voice (Step 4): ears and a mouth.
 
-    mic -> Ears.wait_for_wake_word()   "Hey FRIDAY" (Porcupine) or press Enter
+    mic -> Ears.wait_for_wake_word()   "Hey Zoey" (Porcupine) or press Enter
         -> Ears.listen()               record until you stop talking (WebRTC VAD)
         -> Ears.transcribe()           speech -> text (Whisper, runs locally)
-        -> ...FRIDAY thinks, same agent loop as text mode...
+        -> ...Zoey thinks, same agent loop as text mode...
         -> Mouth.say_streaming()       text -> her voice (ElevenLabs), streamed
 
-The latency trick: FRIDAY's reply streams in word by word. As soon as a full
+The latency trick: Zoey's reply streams in word by word. As soon as a full
 sentence arrives, it goes off to ElevenLabs while she keeps writing the next
 one, and audio plays the moment it comes back. She starts talking about a
 second after you stop, instead of waiting for the whole answer.
@@ -15,7 +15,7 @@ second after you stop, instead of waiting for the whole answer.
 Setup (see README, Step 4):
     pip install -r requirements-voice.txt
     ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID            her voice
-    PICOVOICE_ACCESS_KEY, PORCUPINE_KEYWORD_PATH       "Hey FRIDAY" (optional)
+    PICOVOICE_ACCESS_KEY, PORCUPINE_KEYWORD_PATH       "Hey Zoey" (optional)
 """
 
 import json
@@ -37,7 +37,7 @@ SPEAKER_RATE = 24000        # ElevenLabs pcm_24000 output
 
 # Whisper model size: tiny.en, base.en, small.en, medium.en, large-v3-turbo.
 # Bigger = more accurate but slower. With an NVIDIA GPU, use large-v3-turbo.
-WHISPER_MODEL = os.environ.get("FRIDAY_WHISPER_MODEL", "small.en")
+WHISPER_MODEL = os.environ.get("ZOEY_WHISPER_MODEL", "small.en")
 
 # ElevenLabs model. eleven_flash_v2_5 is fastest (best for conversation).
 # eleven_multilingual_v2 sounds a bit richer but responds slower.
@@ -86,11 +86,11 @@ class Ears:
         return self.wake is not None
 
     def wait_for_wake_word(self) -> None:
-        """Block until "Hey FRIDAY" (or Enter, in push-to-talk mode)."""
+        """Block until "Hey Zoey" (or Enter, in push-to-talk mode)."""
         if self.wake is None:
             input("[press Enter and talk] ")
         else:
-            print('[sleeping... say "Hey FRIDAY"]')
+            print('[sleeping... say "Hey Zoey"]')
             self.flush()
             for frame in self._frames(self.wake.frame_length):
                 if self.wake.process(frame) >= 0:
@@ -99,7 +99,7 @@ class Ears:
 
     # -- recording ----------------------------------------------------------
     def flush(self) -> None:
-        """Throw away audio heard so far (e.g. FRIDAY's own voice)."""
+        """Throw away audio heard so far (e.g. Zoey's own voice)."""
         while not self._mic_queue.empty():
             self._mic_queue.get_nowait()
         self._buffer = np.zeros(0, dtype=np.int16)

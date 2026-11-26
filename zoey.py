@@ -1,5 +1,5 @@
 """
-FRIDAY - your personal assistant.
+Zoey - your personal assistant.
 
 Step 1 taught: calling the model, personality (system prompt), short-term
 memory (resending the conversation), and streaming.
@@ -12,13 +12,13 @@ Step 2 added long-term memory (see memory.py):
 Step 3 added tools (see tools.py) and the agent loop (run_turn below): she can
 check the time, the weather, search the web, and save memories on her own.
 
-Step 4 adds her voice (see voice.py):   python friday.py --voice
+Step 4 adds her voice (see voice.py):   python zoey.py --voice
 
 Run it:
     pip install -r requirements.txt
     export ANTHROPIC_API_KEY=sk-ant-...     # get one at console.anthropic.com
-    python friday.py            # type to her
-    python friday.py --voice    # talk to her
+    python zoey.py            # type to her
+    python zoey.py --voice    # talk to her
 """
 
 import os
@@ -34,17 +34,17 @@ import tools
 # 1. CONFIGURATION
 # ---------------------------------------------------------------------------
 # The model is the "brain". claude-opus-5-5 is the current Opus model.
-MODEL = os.environ.get("FRIDAY_MODEL", "claude-opus-5-5")
+MODEL = os.environ.get("ZOEY_MODEL", "claude-opus-5-5")
 
 # Effort controls how hard the model thinks before answering.
 # "low" = snappy conversation, "high" = deep reasoning. Try changing it!
-EFFORT = os.environ.get("FRIDAY_EFFORT", "low")
+EFFORT = os.environ.get("ZOEY_EFFORT", "low")
 
 # What your assistant should call you.
-USER_NAME = os.environ.get("FRIDAY_USER_NAME", "Boss")
+USER_NAME = os.environ.get("ZOEY_USER_NAME", "Boss")
 
 # Your home city, so "what's the weather?" works without naming a place.
-HOME_CITY = os.environ.get("FRIDAY_HOME_CITY", "")
+HOME_CITY = os.environ.get("ZOEY_HOME_CITY", "")
 
 # Safety net: the most tool round-trips allowed for a single message.
 MAX_TOOL_ROUNDS = 10
@@ -52,9 +52,9 @@ MAX_TOOL_ROUNDS = 10
 # ---------------------------------------------------------------------------
 # 2. PERSONALITY (the system prompt)
 # ---------------------------------------------------------------------------
-# The model has no fixed identity. Everything that makes it "FRIDAY" lives
+# The model has no fixed identity. Everything that makes it "Zoey" lives
 # here. Edit this text freely - it's the single biggest lever you have.
-PERSONALITY = f"""You are FRIDAY, a personal AI assistant to {USER_NAME}.
+PERSONALITY = f"""You are Zoey, a personal AI assistant to {USER_NAME}.
 
 Who you are:
 You talk like a Florida-born nail tech who's been doing sets for fifteen years
@@ -115,7 +115,7 @@ read aloud by a text-to-speech voice, so:
 
 
 def build_system_prompt(voice_mode: bool = False) -> str:
-    # Built ONCE when FRIDAY starts and never changed during the conversation.
+    # Built ONCE when Zoey starts and never changed during the conversation.
     # Facts saved mid-conversation are already in the chat history, so she
     # knows them now; they'll be in the system prompt from the next launch.
     # (Changing the system prompt mid-conversation breaks the model's saved
@@ -128,7 +128,7 @@ def print_text(text: str) -> None:
     print(text, end="", flush=True)
 
 
-def call_friday(client, system_prompt, history, on_text=None, on_break=None):
+def call_zoey(client, system_prompt, history, on_text=None, on_break=None):
     """
     One request to the model. Returns the final message.
     on_text gets each piece of her reply as it streams in (print it, speak it...).
@@ -178,10 +178,10 @@ def run_turn(client, system_prompt, history, on_text=print_text, on_break=None) 
     model always sees the full story of what it did and what came back.
     """
     for _ in range(MAX_TOOL_ROUNDS):
-        reply = call_friday(client, system_prompt, history, on_text, on_break)
+        reply = call_zoey(client, system_prompt, history, on_text, on_break)
 
         if reply.stop_reason == "refusal":
-            raise TurnFailed("FRIDAY declined that request.")
+            raise TurnFailed("Zoey declined that request.")
         if reply.stop_reason == "max_tokens":
             raise TurnFailed("Her reply got cut off (too long).")
 
@@ -212,7 +212,7 @@ def run_turn(client, system_prompt, history, on_text=print_text, on_break=None) 
                 "is_error": is_error,
             })
         history.append({"role": "user", "content": results})
-        print("FRIDAY: ", end="", flush=True)
+        print("Zoey: ", end="", flush=True)
 
     raise TurnFailed("She got stuck in a loop of tool calls.")
 
@@ -222,14 +222,14 @@ def reply_text(message) -> str:
 
 
 def write_recap(client, system_prompt, history) -> None:
-    """Ask FRIDAY to summarize this conversation and save it to her journal."""
+    """Ask Zoey to summarize this conversation and save it to her journal."""
     if len(history) < 2:
         return  # nothing worth recapping
-    print("FRIDAY: (jotting down notes...)")
+    print("Zoey: (jotting down notes...)")
     try:
         # Append-only: the recap request goes on the end of the real conversation.
         recap_history = history + [{"role": "user", "content": RECAP_REQUEST}]
-        message = call_friday(client, system_prompt, recap_history)
+        message = call_zoey(client, system_prompt, recap_history)
         recap = reply_text(message)
         if message.stop_reason != "refusal" and recap:
             memory.add_recap(recap)
@@ -244,9 +244,9 @@ def handle_command(user_text: str) -> bool:
     if lower == "memories":
         facts = memory.load_facts()
         if not facts:
-            print("FRIDAY: My notebook's empty, babe. Tell me 'remember that ...'\n")
+            print("Zoey: My notebook's empty, babe. Tell me 'remember that ...'\n")
         else:
-            print("FRIDAY: Here's what I've got on you:")
+            print("Zoey: Here's what I've got on you:")
             for i, f in enumerate(facts, 1):
                 print(f"  {i}. {f['fact']}  ({f['saved']})")
             print()
@@ -256,9 +256,9 @@ def handle_command(user_text: str) -> bool:
     if match:
         removed = memory.forget_fact(int(match.group(1)))
         if removed:
-            print(f"FRIDAY: Gone. Never heard of it: \"{removed}\"\n")
+            print(f"Zoey: Gone. Never heard of it: \"{removed}\"\n")
         else:
-            print("FRIDAY: There's no number like that. Type 'memories' to see the list.\n")
+            print("Zoey: There's no number like that. Type 'memories' to see the list.\n")
         return True
 
     return False
@@ -276,7 +276,7 @@ def main() -> None:
     # This list is the current conversation; we resend all of it every turn.
     history: list[dict] = []
 
-    print("FRIDAY: Hey babe, I'm here.")
+    print("Zoey: Hey babe, I'm here.")
     print("        (exit, reset, memories, forget <n>)\n")
 
     while True:
@@ -290,18 +290,18 @@ def main() -> None:
             continue
         if user_text.lower() in {"exit", "quit"}:
             write_recap(client, system_prompt, history)
-            print("FRIDAY: Bye, babe. Hydrate.")
+            print("Zoey: Bye, babe. Hydrate.")
             return
         if user_text.lower() == "reset":
             write_recap(client, system_prompt, history)
             history.clear()
             system_prompt = build_system_prompt()  # new conversation, fresh memories
-            print("FRIDAY: Clean slate, like a fresh soak-off. What we doin'?\n")
+            print("Zoey: Clean slate, like a fresh soak-off. What we doin'?\n")
             continue
         if handle_command(user_text):
             continue
 
-        print("FRIDAY: ", end="", flush=True)
+        print("Zoey: ", end="", flush=True)
         respond(client, system_prompt, history, user_text)
 
 
@@ -335,7 +335,7 @@ def respond(client, system_prompt, history, user_text, on_text=print_text, on_br
 
 
 def voice_main() -> None:
-    """Talk to FRIDAY out loud. Same brain, tools and memory as text mode."""
+    """Talk to Zoey out loud. Same brain, tools and memory as text mode."""
     import voice  # only needed (and only installed) for voice mode
 
     client = anthropic.Anthropic()
@@ -349,7 +349,7 @@ def voice_main() -> None:
         print_text(text)
         mouth.feed(text)
 
-    print("FRIDAY: Hey babe, I'm here.  (Ctrl+C to quit)\n")
+    print("Zoey: Hey babe, I'm here.  (Ctrl+C to quit)\n")
     mouth.say("Hey babe, I'm here.")
 
     try:
@@ -368,7 +368,7 @@ def voice_main() -> None:
                     break
                 print(f"You: {user_text}")
 
-                print("FRIDAY: ", end="", flush=True)
+                print("Zoey: ", end="", flush=True)
                 if respond(client, system_prompt, history, user_text,
                            print_and_speak, mouth.break_sentence):
                     mouth.finish()          # wait until she's done talking
@@ -381,7 +381,7 @@ def voice_main() -> None:
         print()
     finally:
         write_recap(client, system_prompt, history)
-        print("FRIDAY: Bye, babe. Hydrate.")
+        print("Zoey: Bye, babe. Hydrate.")
         mouth.say("Bye, babe. Hydrate.")
         ears.close()
         mouth.close()

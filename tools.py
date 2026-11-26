@@ -1,5 +1,5 @@
 """
-FRIDAY's tools (Step 3).
+Zoey's tools (Step 3).
 
 A tool has two halves:
 
@@ -10,7 +10,7 @@ A tool has two halves:
 
 The model never runs anything itself. It replies "please call get_weather with
 city=Tampa", our code runs the function, and we send the result back. That
-back-and-forth is called the agent loop (see run_turn in friday.py).
+back-and-forth is called the agent loop (see run_turn in zoey.py).
 
 There's one exception: web_search is a *server tool*. Anthropic runs it on
 their side, so there's no Python function for it here.

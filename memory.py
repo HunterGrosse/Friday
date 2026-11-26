@@ -1,5 +1,5 @@
 """
-FRIDAY's long-term memory (Step 2).
+Zoey's long-term memory (Step 2).
 
 The model forgets everything when the program closes. Long-term memory is
 just files on disk that we read at startup and paste into the system prompt.
