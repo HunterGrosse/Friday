@@ -1,0 +1,2 @@
+-r requirements-voice.txt
+rumps>=0.4

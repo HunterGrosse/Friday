@@ -83,45 +83,23 @@ SESSION_IDLE_MINUTES = float(os.environ.get("ZOEY_SESSION_IDLE_MINUTES", "15"))
 # ---------------------------------------------------------------------------
 # 2. PERSONALITY (the system prompt)
 # ---------------------------------------------------------------------------
-# The model has no fixed identity. Everything that makes it "Zoey" lives
-# here. Edit this text freely - it's the single biggest lever you have.
-PERSONALITY = f"""You are Zoey, a personal AI assistant to {USER_NAME}.
+# The model has no fixed identity. Everything that makes it "Zoey" lives in
+# personality.md. Edit it freely, even while she's running: she picks up the
+# new version at the start of her next conversation. {name} becomes your name.
+PERSONALITY_FILE = Path(__file__).parent / "personality.md"
 
-Who you are:
-You talk like a Florida-born nail tech who's been doing sets for fifteen years
-and has heard every story twice. You're catty, quick, and have flair, but
-underneath it you're warm and fiercely loyal to {USER_NAME}. People who don't
-know you think you're a lot. People who know you know you'd fight for them.
 
-How you talk:
-- Sassy and direct. You call out BS when you see it: a bad plan, an excuse,
-  something that doesn't add up. You say it with a smirk, not cruelty.
-- Florida flavor in small doses: humidity, hurricanes, Publix, gators,
-  "Florida Man", the beach. Use a reference only when it lands, not every reply.
-- Salon talk when it fits naturally, like "honey," "babe," "girl, no,"
-  comparing a messy situation to a chipped manicure. Don't overdo it.
-- Short and punchy: usually 2-4 sentences. Go longer only when asked for
-  detail. Ask one follow-up question at most.
-- Plain text only. No markdown (no **bold**, headers, or bullet lists): the
-  terminal shows the symbols raw.
-- Use {USER_NAME}'s name now and then, the way a friend does.
+def personality_version() -> float:
+    """Changes whenever personality.md is saved."""
+    return PERSONALITY_FILE.stat().st_mtime
 
-What's underneath:
-- The attitude is the wrapping, never the gift. Always actually help: give the
-  real answer, correct information, and useful advice.
-- If {USER_NAME} is genuinely stressed, sad, or dealing with something serious,
-  ease up on the sass and be kind. You can tease a friend; you don't kick them
-  when they're down.
-- You're loyal: you roast {USER_NAME}'s decisions, but you're always on their side.
 
-Your abilities:
-- You have tools for the current time, the weather, web searches, and saving
-  memories. Use them instead of guessing. For anything current (news, scores,
-  prices, store hours), search; don't rely on what you already know.
-- When you save a memory, mention it briefly and in character ("Noted, babe.").
-- You CANNOT read files, send messages, set reminders or alarms, or control
-  devices. If asked, say plainly that it isn't wired up yet; don't pretend.
-""" + (f"\n{USER_NAME}'s home city is {HOME_CITY}. Use it when they don't name a place.\n" if HOME_CITY else "")
+def load_personality() -> str:
+    text = PERSONALITY_FILE.read_text(encoding="utf-8").replace("{name}", USER_NAME)
+    if HOME_CITY:
+        text += f"\n{USER_NAME}'s home city is {HOME_CITY}. Use it when they don't name a place.\n"
+    return text
+
 
 RECAP_REQUEST = (
     "[Memory system] This conversation is ending. Write a recap for your own "
@@ -152,7 +130,7 @@ def build_system_prompt(voice_mode: bool = False) -> str:
     # knows them now; they'll be in the system prompt from the next launch.
     # (Changing the system prompt mid-conversation breaks the model's saved
     # reasoning and its prompt cache, so append-only is the rule.)
-    prompt = PERSONALITY + memory.memory_prompt_section(USER_NAME)
+    prompt = load_personality() + memory.memory_prompt_section(USER_NAME)
     return prompt + VOICE_RULES if voice_mode else prompt
 
 
@@ -319,6 +297,7 @@ def main() -> None:
     # The model itself is stateless: it remembers nothing between calls.
     # This list is the current conversation; we resend all of it every turn.
     history: list[dict] = []
+    version = personality_version()
 
     print("Zoey: Hey babe, I'm here.")
     print("        (exit, reset, memories, forget <n>)\n")
@@ -332,6 +311,14 @@ def main() -> None:
 
         if not user_text:
             continue
+        if personality_version() != version:
+            # personality.md was edited: file this conversation away and start
+            # a fresh one with the new personality (never edit a live prompt).
+            version = personality_version()
+            write_recap(client, system_prompt, history)
+            history.clear()
+            system_prompt = build_system_prompt()
+            print("[personality updated; fresh conversation]")
         if user_text.lower() in {"exit", "quit"}:
             write_recap(client, system_prompt, history)
             print("Zoey: Bye, babe. Hydrate.")
@@ -397,6 +384,7 @@ def voice_main() -> None:
     system_prompt = build_system_prompt(voice_mode=True)
     history: list[dict] = []
     last_activity = time.monotonic()
+    version = personality_version()
 
     try:
         mouth = voice.Mouth()
@@ -407,7 +395,9 @@ def voice_main() -> None:
         print(f"[!] Can't start voice mode: {e}")
         sys.exit(0)
 
-    if not ears.hands_free and not sys.stdin.isatty():
+    # Push-to-talk reads Enter from the keyboard (or the Mac app's Talk button,
+    # which sets ZOEY_APP). Running as a background service has neither.
+    if not ears.hands_free and not sys.stdin.isatty() and not os.environ.get("ZOEY_APP"):
         print("[!] Running in the background needs the wake word. Set "
               "PICOVOICE_ACCESS_KEY and PORCUPINE_KEYWORD_PATH in .env.")
         sys.exit(0)
@@ -443,6 +433,14 @@ def voice_main() -> None:
                     history.clear()
                     system_prompt = build_system_prompt(voice_mode=True)
                     print("[conversation filed away; next one starts fresh]")
+
+            if personality_version() != version:
+                # personality.md was edited: start fresh with the new one.
+                version = personality_version()
+                write_recap(client, system_prompt, history)
+                history.clear()
+                system_prompt = build_system_prompt(voice_mode=True)
+                print("[personality updated; fresh conversation]")
 
             # A conversation: after she answers, keep listening a few seconds
             # for a follow-up, so you don't need the wake word every time.

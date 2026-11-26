@@ -297,3 +297,33 @@ warning, open **System Settings → Privacy & Security → Microphone** and turn
 permission pop-up, and allow it.
 
 When you're ready, ask for **Step 6: your phone**.
+
+## Mac app (menu bar)
+
+A **Z** in your menu bar that runs her voice mode, with live editing.
+
+```bash
+./make_app.sh        # builds ~/Applications/Zoey.app (once)
+open -a Zoey         # or Spotlight: "Zoey"
+```
+
+| Menu | What it does |
+|---|---|
+| Status line | Ready, Listening, Thinking or Talking (the icon changes too) |
+| Talk | Push-to-talk: click, then speak |
+| Edit personality | Opens `personality.md` in TextEdit |
+| Open Zoey folder / Show log | Her code, and `~/Library/Logs/Zoey/zoey.log` |
+| Restart / Quit Zoey | She writes her recap first either way |
+
+### Editing her while she runs
+The app is a thin launcher: it runs `app.py` from this folder, so there is no
+frozen copy to rebuild.
+
+- **`personality.md`**: save it and her next conversation uses it. (`{name}`
+  becomes `ZOEY_USER_NAME`.) She never changes a conversation already in
+  progress; that would break its cache, so she files it away and starts fresh.
+- **Code or `.env`**: she restarts herself as soon as she's idle and shows a
+  notification. If she's mid-conversation, the menu shows "changes waiting".
+
+Use the app *or* `./zoeyctl install`, not both, or two Zoeys will answer you.
+To start the app at login: System Settings > General > Login Items > add Zoey.
