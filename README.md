@@ -180,7 +180,9 @@ mic → "Hey Zoey" → record until you stop → Whisper (speech → text)
 ```bash
 pip install -r requirements-voice.txt
 ```
-On Linux you also need PortAudio: `sudo apt install libportaudio2`. On Mac and
+Use Python 3.10-3.13 for voice. The speech-recognition package doesn't build
+on 3.14+ yet, so on a newer Mac Python run `brew install python@3.13` and make
+the venv with `python3.13 -m venv .venv`. On Linux you also need PortAudio: `sudo apt install libportaudio2`. On Mac and
 Windows it comes bundled.
 
 **2. Design her voice (ElevenLabs)**
@@ -249,7 +251,7 @@ herself if she crashes, and you never have to open a terminal to talk to her.
 ### One-time setup
 ```bash
 cd zoey                              # wherever you cloned this
-python3 -m venv .venv
+python3.13 -m venv .venv            # voice needs Python 3.10-3.13 (see Step 4)
 .venv/bin/pip install -r requirements-voice.txt
 cp .env.example .env                 # then open .env and fill in your keys
 .venv/bin/python zoey.py --voice     # test once in Terminal, say "Hey Zoey"
