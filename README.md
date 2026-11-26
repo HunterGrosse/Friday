@@ -62,7 +62,7 @@ python zoey.py
 Commands inside the chat: `reset` wipes memory, `exit` quits.
 
 ### 3. Read `zoey.py`
-It's about 100 lines, and the comments are part of the lesson. Four sections:
+The comments are part of the lesson. Four numbered sections:
 
 1. **Configuration**: which model, how much effort it spends thinking.
 2. **Personality**: the `SYSTEM_PROMPT`. Change it and you change who Zoey is.
@@ -72,7 +72,7 @@ It's about 100 lines, and the comments are part of the lesson. Four sections:
 ### 4. Experiments (do these, you'll learn a lot)
 1. **Tune the personality.** She's a catty Florida nail tech now. Turn the sass up or down in `SYSTEM_PROMPT`, restart, and see how much a few sentences change her.
 2. **Break the memory.** Find `messages=history` and change it to `messages=[history[-1]]` (only the latest message). Tell it your name, then ask what your name is. Then change it back.
-3. **Watch it be honest.** Ask "what time is it?" It should say it can't check yet. That's the gap Step 3 fills with tools.
+3. **Watch it be honest.** Ask her to set an alarm. She has no tool for that, so she should say it isn't wired up yet instead of pretending. (Before Step 3 she said the same about the time; tools fill those gaps.)
 4. **Try effort levels.** `ZOEY_EFFORT=high python zoey.py`, then ask a hard logic puzzle. Compare speed and quality with `low`.
 
 ## Step 2: long-term memory
@@ -238,8 +238,6 @@ The first launch downloads the Whisper speech model (a few hundred MB).
 
 **Use headphones at first.** She doesn't hear herself while she talks, but
 speakers right next to the mic can confuse the follow-up listening.
-
-
 
 When you're ready, ask for **Step 5: always on**.
 

@@ -91,7 +91,7 @@ Who you are:
 You talk like a Florida-born nail tech who's been doing sets for fifteen years
 and has heard every story twice. You're catty, quick, and have flair, but
 underneath it you're warm and fiercely loyal to {USER_NAME}. People who don't
-know you think you're a lot. People who do know you'd fight for you.
+know you think you're a lot. People who know you know you'd fight for them.
 
 How you talk:
 - Sassy and direct. You call out BS when you see it: a bad plan, an excuse,
@@ -100,9 +100,10 @@ How you talk:
   "Florida Man", the beach. Use a reference only when it lands, not every reply.
 - Salon talk when it fits naturally, like "honey," "babe," "girl, no,"
   comparing a messy situation to a chipped manicure. Don't overdo it.
-- Short and punchy. You're spoken to in a terminal (and later, out loud), so
-  keep it to a few lines unless asked for detail. No long bullet lists for
-  simple questions.
+- Short and punchy: usually 2-4 sentences. Go longer only when asked for
+  detail. Ask one follow-up question at most.
+- Plain text only. No markdown (no **bold**, headers, or bullet lists): the
+  terminal shows the symbols raw.
 - Use {USER_NAME}'s name now and then, the way a friend does.
 
 What's underneath:
@@ -118,8 +119,8 @@ Your abilities:
   memories. Use them instead of guessing. For anything current (news, scores,
   prices, store hours), search; don't rely on what you already know.
 - When you save a memory, mention it briefly and in character ("Noted, babe.").
-- You still CANNOT read files, send messages, or control devices. If asked,
-  say plainly that it isn't wired up yet rather than pretending.
+- You CANNOT read files, send messages, set reminders or alarms, or control
+  devices. If asked, say plainly that it isn't wired up yet; don't pretend.
 """ + (f"\n{USER_NAME}'s home city is {HOME_CITY}. Use it when they don't name a place.\n" if HOME_CITY else "")
 
 RECAP_REQUEST = (
@@ -138,7 +139,7 @@ read aloud by a text-to-speech voice, so:
 - Talk like a person on the phone: usually 1-3 sentences. Offer to say more
   rather than monologuing.
 - No markdown, bullet points, emojis, URLs, or source citations.
-- Write numbers and symbols the way you'd say them: "seventy-two degrees",
+- Write numbers and symbols the way you'd say them: "twelve degrees",
   "about five bucks", "three thirty in the afternoon".
 - What you hear from {USER_NAME} is a speech-to-text transcript, so it may have
   small mistakes. Go with the obvious meaning; if it's genuinely unclear, ask.
@@ -153,6 +154,15 @@ def build_system_prompt(voice_mode: bool = False) -> str:
     # reasoning and its prompt cache, so append-only is the rule.)
     prompt = PERSONALITY + memory.memory_prompt_section(USER_NAME)
     return prompt + VOICE_RULES if voice_mode else prompt
+
+
+def require_api_key() -> None:
+    # Without this, a missing key only shows up as a traceback on your first
+    # message. Exit status 0 = "a setting needs fixing", so the background
+    # service doesn't restart her every 10 seconds forever.
+    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        print("[!] No API key. Put ANTHROPIC_API_KEY in .env (see README).")
+        sys.exit(0)
 
 
 def print_text(text: str) -> None:
@@ -246,7 +256,6 @@ def run_turn(client, system_prompt, history, on_text=print_text, on_break=None) 
                 "is_error": is_error,
             })
         history.append({"role": "user", "content": results})
-        print("Zoey: ", end="", flush=True)
 
     raise TurnFailed("She got stuck in a loop of tool calls.")
 
@@ -300,6 +309,7 @@ def handle_command(user_text: str) -> bool:
 
 def main() -> None:
     # The client reads ANTHROPIC_API_KEY from the environment automatically.
+    require_api_key()
     client = anthropic.Anthropic()
     system_prompt = build_system_prompt()
 
@@ -335,12 +345,22 @@ def main() -> None:
         if handle_command(user_text):
             continue
 
-        print("Zoey: ", end="", flush=True)
         respond(client, system_prompt, history, user_text)
 
 
 def respond(client, system_prompt, history, user_text, on_text=print_text, on_break=None) -> bool:
     """Run one full turn for a user message. Returns True if it succeeded."""
+    # Print "Zoey: " when her first words arrive, so tool status lines
+    # ("[checking the weather...]") show up above her reply, not inside it.
+    started = False
+
+    def say(text: str) -> None:
+        nonlocal started
+        if not started:
+            print("Zoey: ", end="", flush=True)
+            started = True
+        on_text(text)
+
     # If anything fails mid-turn, we cut history back to this point so it
     # never holds half a turn (like a tool request with no result).
     turn_start = len(history)
@@ -349,13 +369,13 @@ def respond(client, system_prompt, history, user_text, on_text=print_text, on_br
         # -------------------------------------------------------------------
         # 4. THE AGENT LOOP (model calls + tool calls)
         # -------------------------------------------------------------------
-        run_turn(client, system_prompt, history, on_text, on_break)
+        run_turn(client, system_prompt, history, say, on_break)
         return True
     except TurnFailed as e:
         print(f"\n[{e}]\n")
     except anthropic.AuthenticationError:
-        print("\n[!] API key missing or invalid. Set ANTHROPIC_API_KEY.")
-        sys.exit(1)
+        print("\n[!] API key invalid. Check ANTHROPIC_API_KEY in .env.")
+        sys.exit(0)  # a setting needs fixing; restarting won't help
     except anthropic.RateLimitError:
         print("\n[!] Rate limited. Wait a moment and try again.\n")
     except anthropic.APIConnectionError:
@@ -372,6 +392,7 @@ def voice_main() -> None:
     """Talk to Zoey out loud. Same brain, tools and memory as text mode."""
     import voice  # only needed (and only installed) for voice mode
 
+    require_api_key()
     client = anthropic.Anthropic()
     system_prompt = build_system_prompt(voice_mode=True)
     history: list[dict] = []
@@ -435,7 +456,6 @@ def voice_main() -> None:
                     break
                 print(f"You: {user_text}")
 
-                print("Zoey: ", end="", flush=True)
                 if respond(client, system_prompt, history, user_text,
                            print_and_speak, mouth.break_sentence):
                     mouth.finish()          # wait until she's done talking

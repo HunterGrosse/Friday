@@ -7,8 +7,9 @@ just files on disk that we read at startup and paste into the system prompt.
 Two kinds of memory live in the memory/ folder (git-ignored, so your personal
 stuff never gets committed):
 
-  facts.json     Things you explicitly asked her to remember.
-                 "remember that my sister's birthday is May 3rd"
+  facts.json     Lasting facts about you, saved by her save_memory tool when
+                 you ask her to remember something or mention something
+                 personal and lasting.
 
   journal.jsonl  A short recap she writes at the end of each conversation,
                  one JSON object per line. The most recent few are loaded at
@@ -98,7 +99,7 @@ def memory_prompt_section(user_name: str) -> str:
 
     lines = [f"\nToday is {datetime.now().strftime('%A, %B %d, %Y')}.\n"]
 
-    lines.append(f"Things {user_name} asked you to remember:")
+    lines.append(f"Facts you've saved about {user_name}:")
     if facts:
         lines += [f"- {f['fact']} (saved {f['saved']})" for f in facts]
     else:

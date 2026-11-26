@@ -38,9 +38,12 @@ def get_current_time() -> str:
 WEATHER_CODES = {
     0: "clear sky", 1: "mostly clear", 2: "partly cloudy", 3: "overcast",
     45: "fog", 48: "freezing fog", 51: "light drizzle", 53: "drizzle",
-    55: "heavy drizzle", 61: "light rain", 63: "rain", 65: "heavy rain",
-    71: "light snow", 73: "snow", 75: "heavy snow", 80: "rain showers",
-    81: "heavy rain showers", 82: "violent rain showers",
+    55: "heavy drizzle", 56: "freezing drizzle", 57: "heavy freezing drizzle",
+    61: "light rain", 63: "rain", 65: "heavy rain",
+    66: "freezing rain", 67: "heavy freezing rain",
+    71: "light snow", 73: "snow", 75: "heavy snow", 77: "snow grains",
+    80: "rain showers", 81: "heavy rain showers", 82: "violent rain showers",
+    85: "snow showers", 86: "heavy snow showers",
     95: "thunderstorms", 96: "thunderstorms with hail", 99: "severe thunderstorms with hail",
 }
 
@@ -68,8 +71,8 @@ def get_weather(city: str) -> str:
             "longitude": place["longitude"],
             "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m",
             "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-            "temperature_unit": "fahrenheit",
-            "wind_speed_unit": "mph",
+            "temperature_unit": "celsius",
+            "wind_speed_unit": "kmh",
             "timezone": "auto",
             "forecast_days": 1,
         })
@@ -78,10 +81,10 @@ def get_weather(city: str) -> str:
     where = ", ".join(p for p in (place.get("name"), place.get("admin1"), place.get("country")) if p)
     return (
         f"{where}: {WEATHER_CODES.get(now['weather_code'], 'unknown conditions')}, "
-        f"{now['temperature_2m']:.0f}°F (feels like {now['apparent_temperature']:.0f}°F), "
-        f"humidity {now['relative_humidity_2m']}%, wind {now['wind_speed_10m']:.0f} mph. "
-        f"Today: high {today['temperature_2m_max'][0]:.0f}°F, low {today['temperature_2m_min'][0]:.0f}°F, "
-        f"{today['precipitation_probability_max'][0]}% chance of rain."
+        f"{now['temperature_2m']:.0f}°C (feels like {now['apparent_temperature']:.0f}°C), "
+        f"humidity {now['relative_humidity_2m']}%, wind {now['wind_speed_10m']:.0f} km/h. "
+        f"Today: high {today['temperature_2m_max'][0]:.0f}°C, low {today['temperature_2m_min'][0]:.0f}°C, "
+        f"{today['precipitation_probability_max'][0] or 0}% chance of rain."
     )
 
 
@@ -113,7 +116,7 @@ TOOLS = [
     {
         "name": "get_weather",
         "description": "Get current weather and today's forecast for a city, in "
-                       "Fahrenheit. Use for any question about weather, "
+                       "Celsius. Use for any question about weather, "
                        "temperature, rain, or what to wear outside.",
         "input_schema": {
             "type": "object",
@@ -155,6 +158,7 @@ STATUS = {
     "get_weather": "checking the weather",
     "save_memory": "writing that down",
     "web_search": "searching the web",
+    "code_execution": "sorting through results",  # web search's built-in filtering
 }
 
 
