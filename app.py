@@ -95,7 +95,10 @@ class ZoeyApp(rumps.App):
         self.stopping = False             # True while we're stopping her on purpose
         self.updates = queue.Queue()      # status changes from the reader thread
         self.version = code_version()
-        self.start()
+        # She starts OFF: opening the app just puts her in the Dock. Clicking
+        # her (or Turn on) wakes her up, and that's when she says hi.
+        self.toggle_item.title = "Turn on"
+        self.set_status("Off: click to turn on", "off")
         # UI changes must happen on the main thread, so timers apply them.
         rumps.Timer(self.tick, 0.25).start()
         rumps.Timer(self.install_dock, 0.5).start()
@@ -103,7 +106,7 @@ class ZoeyApp(rumps.App):
         signal.signal(signal.SIGTERM, lambda *_: self.quit(None))
 
     # -- Zoey's process ------------------------------------------------------
-    def start(self) -> None:
+    def start(self, greet: bool = True) -> None:
         LOG.parent.mkdir(parents=True, exist_ok=True)
         self.version = code_version()
         self.reload_item.title = "Restart"
@@ -114,7 +117,7 @@ class ZoeyApp(rumps.App):
         self.proc = subprocess.Popen(
             [str(PYTHON), "-u", "zoey.py", "--voice"], cwd=DIR,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            env={**os.environ, "ZOEY_APP": "1"},
+            env={**os.environ, "ZOEY_APP": "1", **({} if greet else {"ZOEY_NO_GREETING": "1"})},
         )
         threading.Thread(target=self.read_output, args=(self.proc,), daemon=True).start()
 
@@ -129,8 +132,10 @@ class ZoeyApp(rumps.App):
                 self.proc.kill()
 
     def restart(self) -> None:
+        if not self.on:
+            return self.start()   # Restart while off just turns her on
         self.stop()
-        self.start()
+        self.start(greet=False)   # a reload shouldn't make her pipe up again
 
     def read_output(self, proc) -> None:
         """Copy her output to the log and turn it into status updates."""

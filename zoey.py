@@ -420,7 +420,8 @@ def voice_main() -> None:
         mouth.feed(text)
 
     print("Zoey: Hey babe, I'm here.  (Ctrl+C to quit)\n")
-    mouth.say("Hey babe, I'm here.")
+    if not os.environ.get("ZOEY_NO_GREETING"):   # the app skips it on reloads
+        mouth.say("Hey babe, I'm here.")
 
     try:
         while True:

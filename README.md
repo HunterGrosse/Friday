@@ -309,7 +309,8 @@ open -a Zoey         # or Spotlight: "Zoey"
 
 | Do this | What happens |
 |---|---|
-| Click her Dock icon | Talk (if she's off, it turns her on) |
+| Open the app | She sits in the Dock, **off**: no mic, no surprises |
+| Click her Dock icon | Off: she wakes up and says hi. On: talk |
 | Right-click her Dock icon | Talk, Turn off / Turn on, Edit personality, Show log, Restart, Quit |
 | Watch the badge | 🎙 listening, … thinking, 💬 talking, "off" |
 
