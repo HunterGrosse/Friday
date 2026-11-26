@@ -68,7 +68,7 @@ It's about 100 lines, and the comments are part of the lesson. Four sections:
 4. **The model call**: one streaming request per message, printing words as they arrive.
 
 ### 4. Experiments (do these, you'll learn a lot)
-1. **Change the personality.** Make FRIDAY sarcastic, or formal like a British butler. Restart and see the difference.
+1. **Tune the personality.** She's a catty Florida nail tech now. Turn the sass up or down in `SYSTEM_PROMPT`, restart, and see how much a few sentences change her.
 2. **Break the memory.** Find `messages=history` and change it to `messages=[history[-1]]` (only the latest message). Tell it your name, then ask what your name is. Then change it back.
 3. **Watch it be honest.** Ask "what time is it?" It should say it can't check yet. That's the gap Step 3 fills with tools.
 4. **Try effort levels.** `FRIDAY_EFFORT=high python friday.py`, then ask a hard logic puzzle. Compare speed and quality with `low`.
